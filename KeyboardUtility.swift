@@ -38,6 +38,10 @@ import UIKit
         :param: textField	The text field for which editing is about to begin.
         :returns: true if an editing session should be initiated; otherwise, false to disallow editing.
     */
+    /**
+        Processes form when final field (field not marked "Next") is finished.
+    */
+    func submitForm()
     
     //https://developer.apple.com/library/ios/documentation/UIKit/Reference/UITextFieldDelegate_Protocol/#//apple_ref/occ/intfm/UITextFieldDelegate/
     
@@ -129,12 +133,10 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
     private var startingOrigin: CGPoint?
     private var offsetY: CGFloat {
         if topView == nil || startingOrigin == nil { return 0 }
-        println("\(startingOrigin!.y) - \(topView!.frame.origin.y)")
         return startingOrigin!.y - topView!.frame.origin.y
     }
     private var offsetX: CGFloat {
         if topView == nil || startingOrigin == nil { return 0 }
-        println("\(startingOrigin!.x) - \(topView!.frame.origin.x)")
         return startingOrigin!.x - topView!.frame.origin.x
     }
     
@@ -287,6 +289,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
             next?.becomeFirstResponder()
         } else {
             textField.resignFirstResponder()
+            delegate?.submitForm()
         }
         return finalResult
     }
@@ -350,7 +353,6 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
     */
     private func shiftWindowDown() {
         if topView == nil || startingOrigin == nil { return }
-        println("\(offsetY)")
         topView!.frame = CGRectOffset(topView!.frame, offsetX, offsetY)
     }
     
