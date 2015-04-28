@@ -41,7 +41,7 @@ import UIKit
     /**
         Processes form when final field (field not marked "Next") is finished.
     */
-    func submitForm()
+    optional func submitForm()
     
     //https://developer.apple.com/library/ios/documentation/UIKit/Reference/UITextFieldDelegate_Protocol/#//apple_ref/occ/intfm/UITextFieldDelegate/
     
@@ -289,7 +289,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
             next?.becomeFirstResponder()
         } else {
             textField.resignFirstResponder()
-            delegate?.submitForm()
+            delegate?.submitForm?()
         }
         return finalResult
     }
