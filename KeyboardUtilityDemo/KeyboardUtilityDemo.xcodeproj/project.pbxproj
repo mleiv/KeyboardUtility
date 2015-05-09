@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B0698BF71AFD2D0C008E8B6A /* ViewController3.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0698BF61AFD2D0C008E8B6A /* ViewController3.swift */; };
 		B1FFFA881AE4B35600A41EFD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1FFFA871AE4B35600A41EFD /* AppDelegate.swift */; };
 		B1FFFA8A1AE4B35600A41EFD /* ViewController1.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1FFFA891AE4B35600A41EFD /* ViewController1.swift */; };
 		B1FFFA8D1AE4B35600A41EFD /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B1FFFA8B1AE4B35600A41EFD /* Main.storyboard */; };
@@ -28,6 +29,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B0698BF61AFD2D0C008E8B6A /* ViewController3.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ViewController3.swift; sourceTree = "<group>"; };
 		B1FFFA821AE4B35600A41EFD /* KeyboardUtilityDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeyboardUtilityDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1FFFA861AE4B35600A41EFD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1FFFA871AE4B35600A41EFD /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -82,12 +84,13 @@
 			isa = PBXGroup;
 			children = (
 				B1FFFAA71AE4B37C00A41EFD /* KeyboardUtility.swift */,
-				B1FFFA871AE4B35600A41EFD /* AppDelegate.swift */,
 				B1FFFA891AE4B35600A41EFD /* ViewController1.swift */,
 				B1FFFAA91AE4B9F100A41EFD /* ViewController2.swift */,
+				B0698BF61AFD2D0C008E8B6A /* ViewController3.swift */,
 				B1FFFA8B1AE4B35600A41EFD /* Main.storyboard */,
 				B1FFFA8E1AE4B35600A41EFD /* Images.xcassets */,
 				B1FFFA901AE4B35600A41EFD /* LaunchScreen.xib */,
+				B1FFFA871AE4B35600A41EFD /* AppDelegate.swift */,
 				B1FFFA851AE4B35600A41EFD /* Supporting Files */,
 			);
 			path = KeyboardUtilityDemo;
@@ -218,6 +221,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B1FFFAA81AE4B37C00A41EFD /* KeyboardUtility.swift in Sources */,
+				B0698BF71AFD2D0C008E8B6A /* ViewController3.swift in Sources */,
 				B1FFFAAA1AE4B9F100A41EFD /* ViewController2.swift in Sources */,
 				B1FFFA8A1AE4B35600A41EFD /* ViewController1.swift in Sources */,
 				B1FFFA881AE4B35600A41EFD /* AppDelegate.swift in Sources */,
@@ -418,6 +422,7 @@
 				B1FFFAA31AE4B35700A41EFD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		B1FFFAA41AE4B35700A41EFD /* Build configuration list for PBXNativeTarget "KeyboardUtilityDemoTests" */ = {
 			isa = XCConfigurationList;
@@ -426,6 +431,7 @@
 				B1FFFAA61AE4B35700A41EFD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

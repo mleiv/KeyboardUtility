@@ -7,7 +7,6 @@
 //  For full copyright and license information, please see the LICENSE.txt
 //  Redistributions of files must retain the above copyright notice.
 
-
 import UIKit
 
 //MARK: KeyboardUtilityDelegate Protocol
@@ -21,23 +20,12 @@ import UIKit
 //NOTE: @objc required to use optional, and then I can't use any swift-specific types (like Bool? or custom enums, sigh)
 
     /**
-        Return a UIView so utility can locate the top-level UIView (needed for moving page elements)
-    
-        :returns: self for UIView or self.view for UIViewController
-    */
-    var view: UIView! { get }
-    /**
         Return all form text fields (needed for processing Next/Done according to tag index)
     
         :returns: an array of UITextField objects
     */
     var textFields: [UITextField] { get } //expects field "tag" indexes to order Next/Done
-    /**
-        Asks the delegate if editing should begin in the specified text field.
     
-        :param: textField	The text field for which editing is about to begin.
-        :returns: true if an editing session should be initiated; otherwise, false to disallow editing.
-    */
     /**
         Processes form when final field (field not marked "Next") is finished.
     */
@@ -45,6 +33,12 @@ import UIKit
     
     //https://developer.apple.com/library/ios/documentation/UIKit/Reference/UITextFieldDelegate_Protocol/#//apple_ref/occ/intfm/UITextFieldDelegate/
     
+    /**
+        Asks the delegate if editing should begin in the specified text field.
+    
+        :param: textField	The text field for which editing is about to begin.
+        :returns: true if an editing session should be initiated; otherwise, false to disallow editing.
+    */
     optional func textFieldShouldBeginEditing(textField:UITextField) -> Bool
     /**
         Tells the delegate that editing began for the specified text field.
@@ -113,44 +107,63 @@ import UIKit
     - start(): call *AFTER* view has been added to view hierarchy
     - stop(): lets go of all the keyboard tracking listeners
 */
-public class KeyboardUtility: NSObject, UITextFieldDelegate {
+public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegate {
 
     public var delegate: KeyboardUtilityDelegate?
     
+    /**
+        Allows a UITableViewController to use other keyboard utilities without using the keyboard shift (since table view has its own built-in version)
+    */
+    public var dontShiftForKeyboard = false
     /**
         Amount of space between field bottom and keyboard.
     */
     public var keyboardPadding: CGFloat = 0
     
-    //calculated at keyboard display or field edit:
-    private var topView: UIView?
+    /**
+        Amount of time to delay shifting window.
+    */
+    public var animationDelay: NSTimeInterval = 0.2
+    
+    // calculated at keyboard display or field edit:
+    private weak var topController: UIViewController?
     private var currentField: UITextField?
     private var keyboardTop: CGFloat?
     private var isTableView = false
     
-    private var didStart = false
-    
+    // some placement values to save so things go back to normal when keyboard closed
+    private var onloadOrigin: CGPoint?
     private var startingOrigin: CGPoint?
     private var offsetY: CGFloat {
-        if topView == nil || startingOrigin == nil { return 0 }
-        return startingOrigin!.y - topView!.frame.origin.y
+        if topController?.view == nil || startingOrigin == nil { return 0 }
+        return startingOrigin!.y - topController!.view.frame.origin.y
     }
     private var offsetX: CGFloat {
-        if topView == nil || startingOrigin == nil { return 0 }
-        return startingOrigin!.x - topView!.frame.origin.x
+        if topController?.view == nil || startingOrigin == nil { return 0 }
+        return startingOrigin!.x - topController!.view.frame.origin.x
     }
+    private var scrollViewOriginalValues = [(UIView, CGPoint, UIEdgeInsets)]()
     
-
+    // short-term storage to correct for bad apple autoscroll (use KBScrollView for better results)
+    private var scrollViewLastSetValues = [(UIView, CGPoint, UIEdgeInsets)]()
+    
+    // track if keyboard utility is on
+    private var isRunning = false
+    
     init(delegate myDelegate:KeyboardUtilityDelegate) {
         self.delegate = myDelegate
     }
     
-    //MARK: initializing listeners
+    //MARK: Listeners
     /**
         Begins listening for keyboard show/hide events and registers for UITextField events.
     */
     public func start() {
-        didStart = true
+        isRunning = true
+        
+        topController = topViewController()
+        onloadOrigin = topController?.view.frame.origin
+        
         registerForKeyboardNotifications()
         setTextFieldDelegates()
     }
@@ -159,27 +172,34 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
         Stops listening to keyboard show/hide events.
     */
     public func stop() {
-        didStart = false
+        isRunning = false
         deregisterFromKeyboardNotifications()
     }
     
     /**
         Sets up keyboard event listeners for show/hide
     */
-    private func registerForKeyboardNotifications(){
+    private func registerForKeyboardNotifications() {
+        if dontShiftForKeyboard {
+            return
+        }
         let notificationCenter = NSNotificationCenter.defaultCenter()
         notificationCenter.addObserver(self, selector: "keyboardWillBeShown:", name: UIKeyboardDidShowNotification, object: nil)
         notificationCenter.addObserver(self, selector: "keyboardWillBeHidden:", name: UIKeyboardWillHideNotification, object: nil)
+        notificationCenter.addObserver(self, selector: "keyboardWasHidden:", name: UIKeyboardDidHideNotification, object: nil)
     }
-    
     
     /**
         Removes keyboard event listeners for show/hide
     */
-    private func deregisterFromKeyboardNotifications(){
+    private func deregisterFromKeyboardNotifications() {
+        if dontShiftForKeyboard {
+            return
+        }
         let notificationCenter = NSNotificationCenter.defaultCenter()
         notificationCenter.removeObserver(self, name: UIKeyboardDidShowNotification, object: nil)
         notificationCenter.removeObserver(self, name: UIKeyboardWillHideNotification, object: nil)
+        notificationCenter.removeObserver(self, name: UIKeyboardDidHideNotification, object: nil)
     }
     
     //MARK: UITextFieldDelegate implementation
@@ -197,9 +217,13 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
 
     /**
         DELEGATE FUNCTION Triggered by listener to text field events.
+        Saves initial positioning data for returning to that state when keyboard is closed.
         Allows KeyboardUtilityDelegate control in textFieldShouldBeginEditing()
     */
     public func textFieldShouldBeginEditing(textField:UITextField) -> Bool {
+        //do this before keyboard is opened or anything else is called:
+        saveInitialValues(fromView: textField as UIView)
+        
         if let result = delegate?.textFieldShouldBeginEditing?(textField) {
             return result
         }
@@ -214,11 +238,11 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
     */
     public func textFieldDidBeginEditing(textField: UITextField) {
         if currentField != textField {
+            let priorCurrentField = (currentField != nil)
             currentField = textField
-            //there is a bit of a lag where a black bar appears before keyboard does, so teeny delay helps:
-            UIView.animateWithDuration(0.1, animations: { [weak self]() in
-                self?.shiftWindowUp()
-            })
+            if priorCurrentField {
+                animateWindowShift()
+            } // else leave to keyboard opener
         }
         delegate?.textFieldDidBeginEditing?(textField)
     }
@@ -279,7 +303,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
             // in addition to KeyboardUtility (could run validation here):
             finalResult = result
         }
-        let view = delegate?.view
+        let view = topController?.view
         if textField.returnKeyType == .Next {
             var next = view?.viewWithTag(textField.tag + 1) as UIResponder?
             if next == nil {
@@ -305,20 +329,51 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
             let keyboardSize = userInfo[UIKeyboardFrameBeginUserInfoKey]?.CGRectValue().size
             var keyboardHeight = CGFloat(keyboardSize?.height ?? 0)
             keyboardTop = keyboardHeight + keyboardPadding
-           //there is a bit of a lag where a black bar appears before keyboard does, so teeny delay helps:
-            UIView.animateWithDuration(0.1, animations: { [weak self]() in
-                self?.shiftWindowUp()
-            })
+            if currentField != nil {
+                animateWindowShift()
+            }
         }
     }
 
     /**
         Triggered by listener to keyboard events.
+        Restores positioning to state before keyboard opened.
     */
     internal func keyboardWillBeHidden (notification: NSNotification) {
-        if keyboardTop != nil {
-            shiftWindowDown()
+        restoreInitialValues()
+        currentField = nil
+    }
+    
+    /**
+        Triggered by listener to keyboard events.
+        Restores positioning to state before keyboard opened.
+    */
+    internal func keyboardWasHidden (notification: NSNotification) {
+        restoreInitialScrollableValues(isFinal: true) // scroll views are stubborn: force them to be the right value
+        currentField = nil
+    }
+    
+    /**
+        Animates the window sliding up to look nicer. Also forces any scroll views we didn't fix to behave properly.
+    */
+    private func animateWindowShift() {
+        if dontShiftForKeyboard {
+            return
         }
+        // Reset all the base scroll view values or we will start seeing black bars of unknown source:
+        for values in scrollViewOriginalValues {
+            setScrollableValues(values)
+        }
+        //there is a bit of a lag where a black bar below top view appears before keyboard does, so teeny delay helps:
+        UIView.animateWithDuration(animationDelay, animations: { [weak self]() in
+            self?.scrollViewLastSetValues = [] //reset
+            self?.shiftWindowUp()
+        }, completion: { [weak self](finished) in
+            // wrestle positoning control from Apple for scroll views. Better solution: use KBScrollView class and this won't be called.
+            for values in self!.scrollViewLastSetValues {
+                self?.setScrollableValues(values)
+            }
+        })
     }
     
     /**
@@ -327,71 +382,231 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate {
           the field up/down the minimum amount required to keep it above the keyboard.
     */
     private func shiftWindowUp() {
-        initTopView()
-        if currentField == nil || topView == nil || keyboardTop == nil { return }
-        if startingOrigin == nil {
-            startingOrigin = topView!.frame.origin
-        }
-        let distanceToKeyboardTop = topView!.frame.height - keyboardTop!
-        var newOffset = distanceToKeyboardTop - getCurrentFieldAbsoluteBottom(currentField!)
-        if isTableView {
-            // table view manages this itself
-            return
-        }
-        if offsetY != 0 && newOffset != 0 {
-            // changing field being edited, window already shifted up for keyboard, so just add the difference:
-            newOffset = min(0, newOffset - (-1 * offsetY))
-        }
-        if newOffset < 0 {
-            topView!.frame = CGRectOffset(topView!.frame, 0, newOffset)
-        }
-    }
-    
-    /**
-        Moves the main window down (called when keyboard is hidden).
-        Uses the value set in shiftWindowUp() to determine how to move back to zero.
-    */
-    private func shiftWindowDown() {
-        if topView == nil || startingOrigin == nil { return }
-        topView!.frame = CGRectOffset(topView!.frame, offsetX, offsetY)
-    }
-    
-    /**
-        Locates top-level view through window (or delegate's view as a fallback), sets a property to hold that value.
-    */
-    private func initTopView() {
-        if topView != nil { return }
-        if topView == nil {
-            var view = delegate?.view
-            while view != nil {
-                if view is UITableView {
-                    isTableView = true
-                    // table view does its own keyboard screen shift, so needs special handling
-                }
-                topView = view
-                view = topView?.superview
-            }
-        }
-    }
-    
-    /**
-        :param: currentField   The field where typing is currently located
-        :returns: Y Location of bottom edge of field
-    */
-    private func getCurrentFieldAbsoluteBottom(currentField: UITextField) -> CGFloat {
-        if topView == nil {
-            return 0
-        }
-        var bottom = currentField.frame.size.height
+        if currentField == nil || topController?.view == nil || keyboardTop == nil { return }
+        // calculate necessary height adjustment (minus scroll adjustments):
+        var fieldHeight = currentField!.bounds.height + keyboardPadding
         var lastView = currentField as UIView?
+        var bottom = fieldHeight
         while let view = lastView {
             bottom += view.frame.origin.y
-            lastView = view.superview
-            if lastView == topView! {
+            if let scrollableView = view as? UITableView ?? view as? UIScrollView {
+                // note: we've already accounted for frame origin y above
+                // now we just need to make sure field is within visible scroll area
+                // and adjust bottom to account for scrolled area
+                var savedInset = scrollableView.contentInset
+                var savedOffset = scrollableView.contentOffset
+                let scrollTopY = savedOffset.y + savedInset.top
+                let scrollBottomY = scrollTopY + scrollableView.bounds.height - savedInset.top
+                let overage: CGFloat = {
+                    if bottom - fieldHeight < scrollTopY {
+                        // content above current top
+                        return (bottom - fieldHeight) - scrollTopY
+                    } else if bottom > scrollBottomY {
+                        // content below current bottom
+                        return bottom - scrollBottomY
+                    }
+                    return CGFloat(0)
+                }()
+                if overage != 0 {
+                    savedOffset.y += overage
+                    savedInset.top -= overage
+                }
+                // because scroll happens automatically on UITextField selection, decide if we need to set values now or AFTER autoscroll (the wrong scroll) happens:
+                if doesntNeedForcedPositioning(view) {
+                    setScrollableValues((view: view, offset: savedOffset, inset: savedInset), animated: true)
+                } else {
+                    //the painful route of repeatedly forcing offset/inset
+                    scrollViewLastSetValues.append((scrollableView, savedOffset, savedInset))
+                }
+                bottom -= savedOffset.y
+            }
+            if view == topController?.view {
                 break
             }
+            lastView = view.superview
         }
-        return bottom
+        // now, move main frame up if necessary:
+        let distanceToKeyboardTop = topController!.view.bounds.height - keyboardTop!
+        var newOffset = distanceToKeyboardTop - bottom
+        if newOffset != 0 {
+            // don't go too far though, or we will see a black bar of nothingness:
+            topController!.view.frame.origin.y = min(startingOrigin?.y ?? 0, topController!.view.frame.origin.y + newOffset)
+        }
     }
+    
+    //MARK: Scrolling Corrections
+    
+    /**
+        Because some scroll views might be in one field's hierarchy but not another's, this allows us to add any new scroll views that might have showed up between "Next" fields.
+        
+        :param: scrollView      The view to add if it is not already in the list
+    */
+    private func addUniqueToScrollOriginals(view: UIView) {
+        for (existingView, offset, inset) in scrollViewOriginalValues {
+            if existingView == view {
+                return
+            }
+        }
+        if let scrollableView = view as? UITableView ?? view as? UIScrollView  {
+            scrollViewOriginalValues.append((scrollableView, scrollableView.contentOffset, scrollableView.contentInset))
+        }
+    }
+    
+    /**
+        Saves original placement state of any views that might be altered
+    
+        :param: fromView    the initial view to begin looking in (goes up the hierarchy, so start with the field if possible)
+    */
+    private func saveInitialValues(fromView: UIView? = nil) {
+        if startingOrigin == nil {
+            startingOrigin = topController?.view.frame.origin
+        }
+        var view = fromView
+        while view != nil {
+            if let scrollableView = view as? UITableView ?? view as? UIScrollView {
+                addUniqueToScrollOriginals(scrollableView)
+            }
+            if view == topController?.view {
+                break
+            }
+            view = view?.superview
+        }
+    }
+    
+    /**
+        Restores original placement state of any views that might have been altered
+    */
+    private func restoreInitialValues() {
+        // reset top frame offset to saved value:
+        if startingOrigin != nil && topController != nil {
+            topController!.view.frame.origin = startingOrigin!
+            startingOrigin = nil
+        }
+        restoreInitialScrollableValues()
+    }
+    
+    /**
+        Restores just the saved scroll views' placement.
+        This runs twice if we aren't using our subclassed scroll elements to disable autoscrolling.
+        
+        :param: isFinal    If true, erases the list of saved positioning values when done
+    */
+    private func restoreInitialScrollableValues(isFinal: Bool = false) {
+        // reset scroll views to saved values:
+        var runTwice = false
+        for values in scrollViewOriginalValues {
+            setScrollableValues(values, animated: true)
+            if !doesntNeedForcedPositioning(values.0) {
+                runTwice = true
+            }
+        }
+        if !runTwice || isFinal {
+            scrollViewOriginalValues = []
+        }
+    }
+    
+    
+    /**
+        Checks to see if the view is one of our subclassed scroll elements to disable autoscrolling.
+        
+        :param: view    the scrollable view
+    */
+    private func doesntNeedForcedPositioning(view: UIView) -> Bool {
+        return view is KBScrollView || view is KBTableView
+    }
+    
+    /**
+        Stops all offset-related autoscrolling animations on the element in question
+        
+        :param: view    the scrollable view
+    */
+    private func stopScroll(view: UIView) {
+        if let scrollableView = view as? UITableView ?? view as? UIScrollView  {
+            var offset = scrollableView.contentOffset
+            offset.x -= 1.0; offset.y -= 1.0
+            scrollableView.setContentOffset(offset, animated: false)
+            offset.x += 1.0; offset.y += 1.0
+            scrollableView.setContentOffset(offset, animated: false)
+        }
+    }
+    
+    /**
+        Sets the inset/offset values of a scrollable element if they have changed.
+        Stops any existing autoscrolling animations if this is an autoscrolling element.
+        
+        :param: values      a tuple of view, offset, and inset
+        :param: animated    true if the offset should be set to animate its changed value
+    */
+    private func setScrollableValues(values: (view: UIView, offset: CGPoint, inset: UIEdgeInsets), var animated: Bool = false) {
+        // reset scroll views to saved values:
+        if let scrollableView = values.view as? UITableView ?? values.view as? UIScrollView  {
+            if !doesntNeedForcedPositioning(scrollableView) {
+                stopScroll(scrollableView)
+                animated = false
+            }
+            if scrollableView.contentInset.top != values.inset.top || scrollableView.contentInset.bottom != values.inset.bottom {
+                scrollableView.contentInset = values.inset
+                scrollableView.scrollIndicatorInsets = values.inset
+            }
+            if scrollableView.contentOffset.y != values.offset.y {
+                scrollableView.setContentOffset(values.offset, animated: animated)
+            }
+        }
+    }
+    
+    //MARK: Top ViewController
+    
+    /**
+        Locates the top-most view controller that is under the tab/nav controllers
+        
+        :param: topController   (optional) view controller to start looking under, defaults to window's rootViewController
+        :returns: an (optional) view controller
+    */
+    private func topViewController(_ topController: UIViewController? = nil) -> UIViewController? {
+        let controller: UIViewController? = {
+            if let controller = topController ?? UIApplication.sharedApplication().keyWindow?.rootViewController {
+                return controller
+            } else if let window = UIApplication.sharedApplication().delegate?.window {
+                //this is only called if window.makeKeyAndVisible() didn't happen...?
+                return window?.rootViewController
+            }
+            return nil
+        }()
+        if let tabController = controller as? UITabBarController, let nextController = tabController.selectedViewController {
+            return topViewController(nextController)
+        } else if let navController = controller as? UINavigationController, let nextController = navController.visibleViewController {
+            return topViewController(nextController)
+        } else if let nextController = controller?.presentedViewController {
+            return topViewController(nextController)
+        }
+        return controller
+    }
+}
 
+//MARK: Subclasses Disabling Autoscroll
+
+/**
+    A UIScrollView with disabled autoscroll behavior
+*/
+class KBScrollView: UIScrollView {
+    // Stops scroll view from trying to autoscroll on keyboard events
+    override func scrollRectToVisible(rect: CGRect, animated: Bool) {
+        //nothing
+    }
+}
+
+/**
+    A UITableView with (mostly) disabled autoscroll behavior
+*/
+class KBTableView: UITableView {
+    // Stops scroll view from trying to autoscroll on keyboard events
+    override func scrollToRowAtIndexPath(indexPath: NSIndexPath, atScrollPosition scrollPosition: UITableViewScrollPosition, animated: Bool) {
+        //nothing
+    }
+    override func scrollToNearestSelectedRowAtScrollPosition(scrollPosition: UITableViewScrollPosition, animated: Bool) {
+        //nothing
+    }
+    override func scrollRectToVisible(rect: CGRect, animated: Bool) {
+        //nothing
+    }
 }

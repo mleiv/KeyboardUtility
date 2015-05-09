@@ -51,6 +51,8 @@ That's it! You should now have an easily navigable form where the field you are 
 
 ![Example Image](/KeyboardUtilityDemo/KeyboardUtilityDemo/Images.xcassets/KeyboardUtility_Readme_Example.imageset/KeyboardUtility_Readme_Example.png?raw=true)
 
+## UIScrollView and UITableViewController
+Because iOS scrollable elements have their own auto-scrolling UITextField behavior, it can appear to jerk as KeyboardUtility and iOS wrestle for control of the window placement. To correct for this, I've included two subclasses, KBScrollView and KBTableView, that help minimize the conflict. However, in the case of UITableViewController, I was unsatisfied with the results and do not recommend using KeyboardUtility's window shifting behavior when a UITableViewController is present. If you would like to use the other functionality in KeyboardUtility, set the public property **dontshiftForKeyboard** to **true**.
 
 ## Demo Project
-Look at the KeyboardUtilityDemo project for a complete example of these steps.
+Look at the KeyboardUtilityDemo project for several examples of KeyboardUtility used with forms, table views, and scroll views.

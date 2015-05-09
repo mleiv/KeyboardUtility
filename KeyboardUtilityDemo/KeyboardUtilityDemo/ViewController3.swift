@@ -1,20 +1,22 @@
 //
-//  ViewController2.swift
+//  ViewController3.swift
 //  KeyboardUtilityDemo
 //
-//  Created by Emily Ivie on 4/19/15.
+//  Created by Emily Ivie on 5/8/15.
 //
 //
 
 import UIKit
 
-class ViewController2: UITableViewController, KeyboardUtilityDelegate {
+class ViewController3: UIViewController, KeyboardUtilityDelegate {
 
     @IBOutlet weak var field1: UITextField!
     @IBOutlet weak var field2: UITextField!
     @IBOutlet weak var field3: UITextField!
     @IBOutlet weak var field4: UITextField!
     @IBOutlet weak var field5: UITextField!
+    @IBOutlet weak var field6: UITextField!
+    @IBOutlet weak var scrollView: UIScrollView!
     
     lazy var keyboardUtility: KeyboardUtility = {
         return KeyboardUtility(delegate: self)
@@ -22,13 +24,12 @@ class ViewController2: UITableViewController, KeyboardUtilityDelegate {
 
     override func viewWillAppear(animated: Bool) {
         super.viewWillAppear(animated)
-        keyboardUtility.dontShiftForKeyboard = true
-        //it is recommended that you disable keyboard shifting for UITableViewControllers, as they have their own autoscroll that interferes with KeyboardUtility. If you do want to override that, I recommend subclassing you UITableView element (inside the storyboard) to KBTableView, which blocks some of the autoscrolling behavior
         keyboardUtility.start()
+        //If you are using KeyboardUtility with a scroll view, I recommend subclassing your UIScrollView element (inside the storyboard) to KBScrollView, which blocks some of the autoscrolling behavior
     }
-    override func viewDidDisappear(animated: Bool) {
-        super.viewDidDisappear(animated)
-        keyboardUtility.stop()
+    
+    override func viewDidAppear(animated: Bool) {
+        super.viewDidAppear(animated)
     }
 
     var textFields: [UITextField] {
@@ -38,6 +39,7 @@ class ViewController2: UITableViewController, KeyboardUtilityDelegate {
             field3,
             field4,
             field5,
+            field6,
         ]
     }
     
@@ -45,4 +47,3 @@ class ViewController2: UITableViewController, KeyboardUtilityDelegate {
     // so KeyboardUtility will avoid shifting the screen in this case.
 
 }
-

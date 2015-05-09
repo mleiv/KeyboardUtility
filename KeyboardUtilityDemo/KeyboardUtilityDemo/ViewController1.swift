@@ -38,13 +38,13 @@ class ViewController1: UIViewController, KeyboardUtilityDelegate {
 
     // require delegate property here:
     var textFields: [UITextField] {
-        var textFields = [UITextField]()
-        textFields.append(field1)
-        textFields.append(field2)
-        textFields.append(field3)
-        textFields.append(field4)
-        textFields.append(field5)
-        return textFields
+        return [
+            field1,
+            field2,
+            field3,
+            field4,
+            field5,
+        ]
     }
     
     // optional delegate functions here:
