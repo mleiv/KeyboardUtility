@@ -22,7 +22,7 @@ import UIKit
     /**
         Return all form text fields (needed for processing Next/Done according to tag index)
     
-        :returns: an array of UITextField objects
+        - returns: an array of UITextField objects
     */
     var textFields: [UITextField] { get } //expects field "tag" indexes to order Next/Done
     
@@ -36,62 +36,62 @@ import UIKit
     /**
         Asks the delegate if editing should begin in the specified text field.
     
-        :param: textField	The text field for which editing is about to begin.
-        :returns: true if an editing session should be initiated; otherwise, false to disallow editing.
+        - parameter textField:	The text field for which editing is about to begin.
+        - returns: true if an editing session should be initiated; otherwise, false to disallow editing.
     */
     optional func textFieldShouldBeginEditing(textField:UITextField) -> Bool
     /**
         Tells the delegate that editing began for the specified text field.
         (Redirects UITextFieldDelegate back to KeyboardUtilityDelegate so it can share use of this function)
     
-        :param: textField	The text field for which an editing session began.
+        - parameter textField:	The text field for which an editing session began.
     */
     optional func textFieldDidBeginEditing(textField:UITextField)
     /**
         Asks the delegate if editing should stop in the specified text field.
         VALIDATE FIELD VALUES HERE.
     
-        :param: textField	The text field for which editing is about to end.
-        :returns: true if editing should stop; otherwise, false if the editing session should continue
+        - parameter textField:	The text field for which editing is about to end.
+        - returns: true if editing should stop; otherwise, false if the editing session should continue
     */
     optional func textFieldShouldEndEditing(textField:UITextField) -> Bool
     /**
         Tells the delegate that editing stopped for the specified text field.
         (Redirects UITextFieldDelegate back to KeyboardUtilityDelegate so it can share use of this function)
     
-        :param: textField	The text field for which editing ended.
+        - parameter textField:	The text field for which editing ended.
     */
     optional func textFieldDidEndEditing(textField:UITextField)
     /**
         Asks the delegate if the specified text should be changed.
     
-        :param: textField       The text field containing the text.
-        :param: range           The range of characters to be replaced
-        :param: string          The replacement string.
-        :returns: true if the specified text range should be replaced; otherwise, false to keep the old text.
+        - parameter textField:       The text field containing the text.
+        - parameter range:           The range of characters to be replaced
+        - parameter string:          The replacement string.
+        - returns: true if the specified text range should be replaced; otherwise, false to keep the old text.
     */
     optional func textField(textField: UITextField, shouldChangeCharactersInRange range: NSRange, replacementString string: String) -> Bool
     /**
         Asks the delegate if the text field’s current contents should be removed.
     
-        :param: textField       The text field containing the text.
-        :returns: true if the text field’s contents should be cleared; otherwise, false.
+        - parameter textField:       The text field containing the text.
+        - returns: true if the text field’s contents should be cleared; otherwise, false.
     */
     optional func textFieldShouldClear(textField:UITextField) -> Bool
     /**
         Asks the delegate if the text field should process the pressing of the return button.
         Overrides/blocks KeyboardUtility from handling textFieldShouldReturn()
     
-        :param: textField       The text field whose return button was pressed.
-        :returns: true if the text field should implement its default behavior for the return button; otherwise, false.
+        - parameter textField:       The text field whose return button was pressed.
+        - returns: true if the text field should implement its default behavior for the return button; otherwise, false.
     */
     optional func textFieldShouldReturnInstead(textField:UITextField) -> Bool
     /**
         Asks the delegate if the text field should process the pressing of the return button.
         (Redirects UITextFieldDelegate back to KeyboardUtilityDelegate so it can share use of this function)
     
-        :param: textField       The text field whose return button was pressed.
-        :returns: true if the text field should implement its default behavior for the return button; otherwise, false.
+        - parameter textField:       The text field whose return button was pressed.
+        - returns: true if the text field should implement its default behavior for the return button; otherwise, false.
     */
     optional func textFieldShouldReturn(textField:UITextField) -> Bool
 }
@@ -222,7 +222,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
     */
     public func textFieldShouldBeginEditing(textField:UITextField) -> Bool {
         //do this before keyboard is opened or anything else is called:
-        saveInitialValues(fromView: textField as UIView)
+        saveInitialValues(textField as UIView)
         
         if let result = delegate?.textFieldShouldBeginEditing?(textField) {
             return result
@@ -326,7 +326,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
     */
     internal func keyboardWillBeShown (notification: NSNotification) {
         if let userInfo = notification.userInfo {
-            let keyboardSize = userInfo[UIKeyboardFrameBeginUserInfoKey]?.CGRectValue().size
+            let keyboardSize = userInfo[UIKeyboardFrameEndUserInfoKey]?.CGRectValue.size
             var keyboardHeight = CGFloat(keyboardSize?.height ?? 0)
             keyboardTop = keyboardHeight + keyboardPadding
             if currentField != nil {
@@ -349,7 +349,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
         Restores positioning to state before keyboard opened.
     */
     internal func keyboardWasHidden (notification: NSNotification) {
-        restoreInitialScrollableValues(isFinal: true) // scroll views are stubborn: force them to be the right value
+        restoreInitialScrollableValues(true) // scroll views are stubborn: force them to be the right value
         currentField = nil
     }
     
@@ -384,7 +384,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
     private func shiftWindowUp() {
         if currentField == nil || topController?.view == nil || keyboardTop == nil { return }
         // calculate necessary height adjustment (minus scroll adjustments):
-        var fieldHeight = currentField!.bounds.height + keyboardPadding
+        let fieldHeight = currentField!.bounds.height + keyboardPadding
         var lastView = currentField as UIView?
         var bottom = fieldHeight
         while let view = lastView {
@@ -427,7 +427,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
         }
         // now, move main frame up if necessary:
         let distanceToKeyboardTop = topController!.view.bounds.height - keyboardTop!
-        var newOffset = distanceToKeyboardTop - bottom
+        let newOffset = distanceToKeyboardTop - bottom
         if newOffset != 0 {
             // don't go too far though, or we will see a black bar of nothingness:
             topController!.view.frame.origin.y = min(startingOrigin?.y ?? 0, topController!.view.frame.origin.y + newOffset)
@@ -439,7 +439,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
     /**
         Because some scroll views might be in one field's hierarchy but not another's, this allows us to add any new scroll views that might have showed up between "Next" fields.
         
-        :param: scrollView      The view to add if it is not already in the list
+        - parameter scrollView:      The view to add if it is not already in the list
     */
     private func addUniqueToScrollOriginals(view: UIView) {
         for (existingView, offset, inset) in scrollViewOriginalValues {
@@ -455,7 +455,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
     /**
         Saves original placement state of any views that might be altered
     
-        :param: fromView    the initial view to begin looking in (goes up the hierarchy, so start with the field if possible)
+        - parameter fromView:    the initial view to begin looking in (goes up the hierarchy, so start with the field if possible)
     */
     private func saveInitialValues(fromView: UIView? = nil) {
         if startingOrigin == nil {
@@ -489,7 +489,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
         Restores just the saved scroll views' placement.
         This runs twice if we aren't using our subclassed scroll elements to disable autoscrolling.
         
-        :param: isFinal    If true, erases the list of saved positioning values when done
+        - parameter isFinal:    If true, erases the list of saved positioning values when done
     */
     private func restoreInitialScrollableValues(isFinal: Bool = false) {
         // reset scroll views to saved values:
@@ -509,7 +509,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
     /**
         Checks to see if the view is one of our subclassed scroll elements to disable autoscrolling.
         
-        :param: view    the scrollable view
+        - parameter view:    the scrollable view
     */
     private func doesntNeedForcedPositioning(view: UIView) -> Bool {
         return view is KBScrollView || view is KBTableView
@@ -518,7 +518,7 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
     /**
         Stops all offset-related autoscrolling animations on the element in question
         
-        :param: view    the scrollable view
+        - parameter view:    the scrollable view
     */
     private func stopScroll(view: UIView) {
         if let scrollableView = view as? UITableView ?? view as? UIScrollView  {
@@ -534,8 +534,8 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
         Sets the inset/offset values of a scrollable element if they have changed.
         Stops any existing autoscrolling animations if this is an autoscrolling element.
         
-        :param: values      a tuple of view, offset, and inset
-        :param: animated    true if the offset should be set to animate its changed value
+        - parameter values:      a tuple of view, offset, and inset
+        - parameter animated:    true if the offset should be set to animate its changed value
     */
     private func setScrollableValues(values: (view: UIView, offset: CGPoint, inset: UIEdgeInsets), var animated: Bool = false) {
         // reset scroll views to saved values:
@@ -559,8 +559,8 @@ public class KeyboardUtility: NSObject, UITextFieldDelegate, UIScrollViewDelegat
     /**
         Locates the top-most view controller that is under the tab/nav controllers
         
-        :param: topController   (optional) view controller to start looking under, defaults to window's rootViewController
-        :returns: an (optional) view controller
+        - parameter topController:   (optional) view controller to start looking under, defaults to window's rootViewController
+        - returns: an (optional) view controller
     */
     private func topViewController(_ topController: UIViewController? = nil) -> UIViewController? {
         let controller: UIViewController? = {

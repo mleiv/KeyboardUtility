@@ -52,10 +52,10 @@ class ViewController1: UIViewController, KeyboardUtilityDelegate {
     func textFieldShouldEndEditing(textField:UITextField) -> Bool {
         // validate the fields here
         if textField == field2 {
-            if textField.text.isEmpty {
+            if textField.text?.isEmpty != false {
                 errorField2Label.hidden = true
                 return true
-            } else if let value = textField.text.toInt() {
+            } else if let value = Int(textField.text ?? "") {
                 errorField2Label.hidden = true
                 return true
             } else {
@@ -65,10 +65,10 @@ class ViewController1: UIViewController, KeyboardUtilityDelegate {
             }
         }
         if textField == field3 {
-            if textField.text.isEmpty {
+            if textField.text?.isEmpty != false {
                 errorField3Label.hidden = true
                 return true
-            } else if count(textField.text) <= 1 {
+            } else if (textField.text?.characters.count ?? 0) <= 1 {
                 errorField3Label.hidden = true
                 return true
             } else {
@@ -85,7 +85,7 @@ class ViewController1: UIViewController, KeyboardUtilityDelegate {
         if textField == field5 {
             var foundEmptyFields = 0
             for field in textFields {
-                if field.text.isEmpty {
+                if field.text?.isEmpty != false {
                     foundEmptyFields++
                 }
             }
